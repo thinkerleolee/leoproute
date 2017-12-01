@@ -100,11 +100,14 @@ void Ping::ReceiveLoop() {
 
             ip_header ih;
             //得出ＩＰ头部
-            memcpy((char *) &ih, recv_buff, IP_HEADER_LEN + ICMP_LEN);
-            icmp_pac ip;
+            memcpy((char *) &ih, recv_buff, IP_HEADER_LEN_NO_OPTION + ICMP_LEN);
 
-            //解析ICMP报文,得到当前时间
-            int de = it.DecodeIcmpV4(recv_buff, ICMP_LEN + IP_HEADER_LEN, &recvaddr, ip, msecond);
+            //IP header length
+            int ip_header_len = ih.ip_hl;
+            icmp_pac_request_reply ip;
+
+            //解析ICMP报文
+            int de = it.DecodeIcmpPing<icmp_pac_request_reply>(recv_buff, ICMP_LEN + ip_header_len * 4, &recvaddr, ip, msecond);
             //解析失败
             if (de == false) {
                 msecond = 0;
@@ -112,7 +115,7 @@ void Ping::ReceiveLoop() {
             } else if (ip.type == ICMPTYPE::DESTINATION_UNREACHABLE) {  //目的地址不可达报文
                 cout << "From " << addr << ": icmp_seq=" << seq << " Destination unreachable" << endl;
                 break;
-            } else if (ip.type == ICMPTYPE::ECHO_REPY) {                  //正常应答
+            } else if (ip.type == ICMPTYPE::ECHO_REPLY) {                  //正常应答
                 bytesnum = ICMP_DATA_LEN;
                 seq = ip.seq_number;
                 inet_ntop(AF_INET, &recvaddr.sin_addr, addr, sizeof(addr));
@@ -128,6 +131,8 @@ void Ping::ReceiveLoop() {
 }
 
 bool Ping::SolveAddrV4(const char *hostOrIp) {
+    //TODO
+    //Should use more advanced funcctions(support IPv6)
     if (hostOrIp == NULL) {
         return false;
     }
@@ -147,9 +152,8 @@ bool Ping::SolveAddrV4(const char *hostOrIp) {
 
 void Ping::SendIcmp(int seq) {
     //TODO
-    //BUG ICMP_DATA_LEN
     memset(send_buff, 0, ICMP_LEN);
-    it.FillIcmpRquestV4((icmp_pac *) (send_buff), seq);
+    it.FillIcmpRquest(*reinterpret_cast<icmp_pac_request_reply*>(&send_buff), seq);
     if ((sendto(sockfd, send_buff, ICMP_LEN, 0, (struct sockaddr *) &msockaddr, sizeof(sockaddr))) <= 0) {
         cerr << "Cannot send data" << endl;
         shutdown(sockfd, SHUT_RDWR);
