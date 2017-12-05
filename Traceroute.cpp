@@ -4,43 +4,14 @@
 
 #include "Traceroute.h"
 
-/*
-traceroute to www.baidu.com (180.97.33.107), 30 hops max, 60 byte packets
-1  192.168.43.1 (192.168.43.1)  2.199 ms  2.563 ms  2.554 ms
-*/
-bool Traceroute::SolveAddrV4(const char *hostOrIp)
-{
-    //TODO
-    //Should use more advanced funcctions(support IPv6)
-    if (hostOrIp == NULL)
-    {
-        return false;
-    }
-    if ((remote_host = gethostbyname(hostOrIp)) != NULL)
-    {
-        return true;
-    }
-    in_addr ina;
-    ina.s_addr = inet_addr(hostOrIp); //获取主机信息
-    if (ina.s_addr == INADDR_NONE)
-    {
-        return false;
-    }
-    if ((remote_host = gethostbyaddr((char *)ina.s_addr, 4, AF_INET)) != NULL)
-    {
-        return true;
-    }
-    return false;
-}
-
 void Traceroute::SetSock(const char *hostOrIp)
 {
     start_time = IcmpTool::GetTickCount();
 
-    //解析地址参数
-    if (SolveAddrV4(hostOrIp) == false)
+    //解析地址参数,DNS解析
+    if (SolveAddrV4(hostOrIp, &remote_host) == false)
     {
-        cout << "Domain name resolution failed" << endl;
+        perror("Domain name resolution failed");
         exit(-1);
     }
 
@@ -51,24 +22,27 @@ void Traceroute::SetSock(const char *hostOrIp)
     sendfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sendfd < 0)
     {
-        cerr << "CREATE SOCKET ERROR" << endl;
+        perror("CREATE SOCKET ERROR");
         exit(-2);
     }
+
     //设置超时
     struct timeval timeout = {2, 0};
     if (setsockopt(sendfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
     {
-        cerr << "SET TIMEOUT ERROR" << endl;
+        perror("SET TIMEOUT ERROR");
+        shutdown(sendfd, SHUT_RDWR);
+        exit(-2);
+    }
+    if (setsockopt(sendfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
+    {
+
+        perror("SET TIMEOUT ERROR");
         shutdown(sendfd, SHUT_RDWR);
         exit(-2);
     }
 
-    if (setsockopt(sendfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
-    {
-        cerr << "SET TIMEOUT ERROR" << endl;
-        shutdown(sendfd, SHUT_RDWR);
-        exit(-2);
-    }
+    //msockaddr置为零
     bzero(&msockaddr, sizeof(msockaddr));
     msockaddr.sin_family = AF_INET;
     msockaddr.sin_addr.s_addr = inet_addr(ip.c_str());
@@ -79,20 +53,20 @@ void Traceroute::SetSock(const char *hostOrIp)
     recvfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (recvfd < 0)
     {
-        cerr << "CREATE SOCKET ERROR" << endl;
+        perror("CREATE SOCKET ERROR");
         exit(-2);
     }
 
+    //设置超时
     if (setsockopt(recvfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
     {
-        cerr << "SET TIMEOUT ERROR" << endl;
+        perror("SET TIMEOUT ERROR");
         shutdown(sendfd, SHUT_RDWR);
         exit(-2);
     }
-
     if (setsockopt(recvfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
     {
-        cerr << "SET TIMEOUT ERROR" << endl;
+        perror("SET TIMEOUT ERROR");
         shutdown(sendfd, SHUT_RDWR);
         exit(-2);
     }
@@ -121,14 +95,14 @@ void Traceroute::RecvLoop()
             }
             else
             {
+                //当前时间
+                u_int32_t msecond;
                 while (1)
                 {
                     int bytesnum = 0;
                     char addr[INET_ADDRSTRLEN];
                     sockaddr_in recvaddr;
                     int n = sizeof(recvaddr);
-                    //当前时间
-                    u_int32_t msecond;
                     int res = recvfrom(recvfd, recv_buff, 1024, 0, reinterpret_cast<struct sockaddr *>(&recvaddr),
                                        reinterpret_cast<socklen_t *>(&n));
                     if (res < 0)
@@ -159,7 +133,6 @@ void Traceroute::RecvLoop()
                         { //正常应答
                             bytesnum = sizeof(ip.data);
                             inet_ntop(AF_INET, &recvaddr.sin_addr, addr, sizeof(addr));
-                            ++recv_pag_num;
                             cout << bytesnum << " bytes from " << addr << " ttl=" << static_cast<u_short>(ih.ttl);
                             ++succ;
                             break;

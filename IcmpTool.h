@@ -61,23 +61,24 @@ typedef struct ip_header
 
 typedef struct udp_header
 {
-    u_int16_t uh_sport; /* source port */
-    u_int16_t uh_dport; /* destination port */
-    u_int16_t uh_ulen;  /* udp length */
-    u_int16_t uh_sum;   /* udp checksum */
+    u_int16_t uh_sport;     // source port
+    u_int16_t uh_dport;     // destination port
+    u_int16_t uh_ulen;      // udp length
+    u_int16_t uh_sum;       // udp checksum
 } udp_header;
 
+//自定义UDP数据(32 bits);
 typedef struct udp_data
-{ //自定义数据(32 bits);
+{
     u_short rec_seq;
     u_short rec_ttl;
     u_int32_t rec_tv;
 } udp_data;
 
 //TODO
-//统一ICMP报文格式
-//ICMP解码结果
+//ICMP往返时间计算
 
+//ICMP头部
 typedef struct icmp_header
 {
     u_int8_t type = 0;      //类型(8 bits)
@@ -96,7 +97,7 @@ typedef struct icmp_pac_request_reply
     u_int32_t data = 0;       //自定义数据(32 bits),echo_reply
 } icmp_pac_request_reply;
 
-//timeout报文
+//ICMP timeout报文
 typedef struct icmp_pac_timeout
 {
     u_int8_t type = 0;      //类型(8 bits)
@@ -112,29 +113,35 @@ using namespace std;
 class IcmpTool
 {
   public:
+    //虚函数,生成套接字
     virtual void SetSock(const char *){};
+
+    //虚函数,主循环体
     virtual void RecvLoop(){};
-    //SIG_INT
+
+    //中断函数
     virtual void sig_int(){};
+
+    //析构函数
+    virtual ~IcmpTool(){};
 
   protected:
     //对ICMP包解码
     virtual bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_request_reply &icmpp, u_int32_t &msecond){};
     virtual bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_timeout &icmpp, u_int32_t &msecond){};
 
+    //解析IPv4地址或域名
     bool SolveAddrV4(const char *hostOrIp, struct hostent **remote_host);
 
     //得出微妙级时间
     static u_int32_t GetTickCount()
     {
         struct timespec ts;
-
         clock_gettime(CLOCK_MONOTONIC, &ts);
-
         return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
     }
 
-    //得到校验和
+    //校验和算法
     static u_int16_t Checksum(int len, u_int16_t *data)
     {
         u_int32_t sum = 0;

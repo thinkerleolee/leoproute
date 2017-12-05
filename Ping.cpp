@@ -11,7 +11,7 @@ void Ping::SetSock(const char *hostOrIp)
     //解析地址参数
     if (!SolveAddrV4(hostOrIp, &remote_host))
     {
-        cout << "Domain name resolution failed" << endl;
+        perror("Domain name resolution failed");
         exit(-1);
     }
     cout << remote_host->h_addr_list[0];
@@ -22,7 +22,7 @@ void Ping::SetSock(const char *hostOrIp)
     //ip地址转换网络字节序
     if ((inet_pton(AF_INET, ip.c_str(), &msockaddr.sin_addr)) < 0)
     {
-        cerr << "TRANS IPADDR ERROR" << endl;
+        perror("TRANS IPADDR ERROR");
         exit(-1);
     }
     msockaddr.sin_family = AF_INET;
@@ -33,7 +33,7 @@ void Ping::SetSock(const char *hostOrIp)
     sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0)
     {
-        cerr << "CREATE SOCKET ERROR" << endl;
+        perror("CREATE SOCKET ERROR");
         exit(-2);
     }
 
@@ -43,20 +43,24 @@ void Ping::SetSock(const char *hostOrIp)
     //扩大套接字接收缓冲区到50K这样做主要为了减小接收缓冲区溢出的
     //的可能性,若无意中ping一个广播地址或多播地址,将会引来大量应答
     int size = 60 * 1024;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+    if(setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) <0){
+        perror("SET TIMEOUT ERROR");
+        shutdown(sockfd, SHUT_RDWR);
+        exit(-2);
+    }
 
     //设置超时
     struct timeval timeout = {2, 0};
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
     {
-        cerr << "SET TIMEOUT ERROR" << endl;
+        perror("SET TIMEOUT ERROR");
         shutdown(sockfd, SHUT_RDWR);
         exit(-2);
     }
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0)
     {
-        cerr << "SET TIMEOUT ERROR" << endl;
+        perror("SET TIMEOUT ERROR");
         shutdown(sockfd, SHUT_RDWR);
         exit(-2);
     }
@@ -85,7 +89,7 @@ void Ping::RecvLoop()
                                reinterpret_cast<socklen_t *>(&n));
             if (res == 0)
             {
-                cout << "Remote host closed" << endl;
+                perror("Remote host closed");
                 exit(-5);
             }
             if (res < 0)
@@ -94,12 +98,12 @@ void Ping::RecvLoop()
                 {
                 case EWOULDBLOCK || errno == EAGAIN:
                 {
-                    cerr << "Request timed out." << endl;
+                    perror("Request timed out");
                     break;
                 }
                 case ECONNREFUSED:
                 {
-                    cerr << "Remote host refused" << endl;
+                    perror("Remote host refused");
                     break;
                 }
                 default:
@@ -154,7 +158,7 @@ void Ping::SendIcmp(int seq)
     FillIcmpPkg(*reinterpret_cast<icmp_pac_request_reply *>(&send_buff), seq);
     if ((sendto(sockfd, send_buff, ICMP_LEN, 0, (struct sockaddr *)&msockaddr, sizeof(sockaddr))) <= 0)
     {
-        cerr << "Cannot send data" << endl;
+        perror("Cannot send data");
         shutdown(sockfd, SHUT_RDWR);
         exit(-3);
     }

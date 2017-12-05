@@ -38,25 +38,32 @@ class Ping : public IcmpTool
     int send_pak_num = 0;
     //接包数
     int recv_pag_num = 0;
+
     //发送ICMP包
     void SendIcmp(int seq);
 
-  public:
-    //构造函数，参数为命令行参数就
-    //Ping(vector<string> argv);
+    //解析ICMP报文
+    bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_request_reply &icmpp,
+                       u_int32_t &msecond);
 
+    //装填ICMP报文
+    void FillIcmpPkg(icmp_pac_request_reply &icmpp, int seq);
+public:
+    //初始化socket
     void SetSock(const char *hostOrIp);
 
     //接收数据循环
     void RecvLoop();
 
-    bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_request_reply &icmpp,
-                       u_int32_t &msecond);
-
-    void FillIcmpPkg(icmp_pac_request_reply &icmpp, int seq);
-
     //中断函数
     void sig_int();
+
+    //析构函数
+    ~Ping(){
+        delete(send_buff);
+        delete(recv_buff);
+        shutdown(sockfd, SHUT_RDWR);
+    }
 };
 
 #endif //LEOPING_PING_H

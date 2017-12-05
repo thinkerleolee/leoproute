@@ -26,8 +26,19 @@ using namespace std;
 class Traceroute : public IcmpTool
 {
   public:
+    //初始化SOCKET
     void SetSock(const char *hostOrIp);
+
+    //主循环体
     void RecvLoop();
+
+    //析构函数
+    ~Traceroute(){
+        delete(send_buff);
+        delete(recv_buff);
+        shutdown(sendfd, SHUT_RDWR);
+        shutdown(recvfd, SHUT_RDWR);
+    }
 
   private:
     int sendfd;
@@ -40,14 +51,6 @@ class Traceroute : public IcmpTool
     u_long int_time;
     struct sockaddr_in msockaddr;
     struct hostent *remote_host;
-
-    //发包数
-    int send_pak_num = 0;
-    //接包数
-    int recv_pag_num = 0;
-
-    //解析主机信息
-    bool SolveAddrV4(const char *hostOrIp);
 
     bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_timeout &icmpp,
                        u_int32_t &msecond);
