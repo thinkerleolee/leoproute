@@ -18,33 +18,18 @@
 #include <ctime>
 #include "IcmpTool.h"
 
-
 const u_int32_t TIME_OUT = 2000;
 
 using namespace std;
 
-class Ping {
-private:
+class Ping : public IcmpTool
+{
+  private:
     int sockfd;
     char send_buff[ICMP_LEN];
     char recv_buff[1024];
     struct sockaddr_in msockaddr;
     struct hostent *remote_host;
-    IcmpTool it;
-
-public:
-    //构造函数，参数为命令行参数就
-    //Ping(vector<string> argv);
-
-    int SetSock(const char *hostOrIp);
-
-    //接收数据循环
-    void ReceiveLoop();
-
-    //中断函数
-    void sig_int();
-
-private:
     //程序开始时间
     u_long start_time;
     //程序中断结束时间
@@ -55,15 +40,23 @@ private:
     int recv_pag_num = 0;
     //发送ICMP包
     void SendIcmp(int seq);
-    //解析主机信息
-    bool SolveAddrV4(const char *hostOrIp);
-    //使用说明
-    void Usage() {
-        cout << "Usage: ping destination" << endl;
-    }
-    //欢迎页面
-    void WelCome();
-};
 
+  public:
+    //构造函数，参数为命令行参数就
+    //Ping(vector<string> argv);
+
+    void SetSock(const char *hostOrIp);
+
+    //接收数据循环
+    void RecvLoop();
+
+    bool DecodeIcmpPkg(char *rcvbuf, int length, sockaddr_in *from, icmp_pac_request_reply &icmpp,
+                       u_int32_t &msecond);
+
+    void FillIcmpPkg(icmp_pac_request_reply &icmpp, int seq);
+
+    //中断函数
+    void sig_int();
+};
 
 #endif //LEOPING_PING_H

@@ -5,32 +5,27 @@
 #include <iostream>
 #include "IcmpTool.h"
 
-
-
-u_int16_t IcmpTool::Checksum(int len, u_int16_t *data) {
-    u_int32_t sum = 0;
-
-    while (len > 1)
+bool IcmpTool::SolveAddrV4(const char *hostOrIp, struct hostent **remote_host)
+{
+    //TODO
+    //Should use more advanced funcctions(support IPv6)
+    if (hostOrIp == NULL)
     {
-        sum += *data++;
-        len -= sizeof(u_int16_t);
+        return false;
     }
-    if (len == 1)
+    if ((*remote_host = gethostbyname(hostOrIp)) != NULL)
     {
-        u_int16_t tmp = *data;
-        tmp &= 0xff00;
-        sum += tmp;
+        return true;
     }
-    sum = (sum >> 16) + (sum & 0x0000ffff);
-    sum += sum >> 16;
-
-    return ~sum;
-}
-
-u_int32_t IcmpTool::GetTickCount() {
-    struct timespec ts;
-
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-
-    return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+    in_addr ina;
+    ina.s_addr = inet_addr(hostOrIp); //获取主机信息
+    if (ina.s_addr == INADDR_NONE)
+    {
+        return false;
+    }
+    if ((*remote_host = gethostbyaddr((char *)ina.s_addr, 4, AF_INET)) != NULL)
+    {
+        return true;
+    }
+    return false;
 }
