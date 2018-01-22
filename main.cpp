@@ -39,7 +39,7 @@ void Usage()
     cout << "leoproute <type> <ipaddr>" << endl;
     cout << "type:"
          << " -p : ping "
-         << " -r : traceroute" << endl;
+         << " -t : traceroute" << endl;
     cout << "ipaddr:"
          << " ipaddress" << endl;
     cout << "exm: "
